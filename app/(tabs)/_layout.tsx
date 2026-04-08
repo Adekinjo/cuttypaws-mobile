@@ -1,35 +1,65 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { Stack, router } from "expo-router";
+import Constants from "expo-constants";
+import { useEffect } from "react";
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import AuthService from "../../src/api/AuthService";
+import NotificationService from "../../src/api/NotificationService";
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+export default function TabsLayout() {
+  useEffect(() => {
+    let active = true;
 
-  return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-      />
-    </Tabs>
-  );
+    const initializeNotifications = async () => {
+      NotificationService.initializePushNotifications({
+        onNotificationResponse: (response) => {
+          const data = NotificationService.getPushDataFromResponse(response);
+          const destination = NotificationService.getPushRouteFromData(data);
+
+          if (destination.route === "/(tabs)/post/[id]" && destination.params?.id) {
+            router.push({
+              pathname: destination.route,
+              params: destination.params,
+            });
+            return;
+          }
+
+          router.push({
+            pathname: destination.route,
+            params: destination.params,
+          });
+        },
+      });
+
+      try {
+        const isAuthenticated = await AuthService.isAuthenticated();
+        if (!isAuthenticated || !active) {
+          return;
+        }
+
+        const { token, error } = await NotificationService.syncPushTokenRegistration();
+        if (!active) return;
+
+        if (token) {
+          return;
+        } else if (
+          error &&
+          error !== "Push notifications require a physical device." &&
+          Constants.appOwnership !== "expo"
+        ) {
+          console.warn("[TabsLayout] Push notifications not fully configured:", error);
+        }
+      } catch (setupError) {
+        console.warn("[TabsLayout] Failed to initialize push notifications", setupError);
+      }
+    };
+
+    initializeNotifications();
+
+    return () => {
+      active = false;
+      NotificationService.cleanupPushNotificationListeners();
+    };
+  }, []);
+
+  return <Stack screenOptions={{ headerShown: false }} />;
 }

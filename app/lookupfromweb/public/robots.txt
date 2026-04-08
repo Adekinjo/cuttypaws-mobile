@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Host: www.cuttypaws.com
+
+Sitemap: https://www.cuttypaws.com/sitemap.xml

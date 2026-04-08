@@ -1,24 +1,60 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { Stack } from "expo-router";
+import * as Linking from "expo-linking";
+import { useEffect } from "react";
+import AuthService from "../src/api/AuthService";
+import { CartProvider } from "../src/components/context/CartContext";
+import { ThemeProvider } from "../src/components/context/ThemeContext";
+import { handleStripeCallback } from "../src/utils/stripeCallback";
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+const STRIPE_RETURN_URL_PREFIX = "cuttypawsmobile://stripe-redirect";
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  useEffect(() => {
+    AuthService.initializeApp(() => {
+      console.warn("[RootLayout] User became unauthorized.");
+    }).catch((error) => {
+      console.error("[RootLayout] Failed to initialize auth state", error);
+    });
+  }, []);
+
+  useEffect(() => {
+    const processStripeUrl = async (url?: string | null) => {
+      if (!url || !url.startsWith(STRIPE_RETURN_URL_PREFIX)) return;
+
+      try {
+        await handleStripeCallback(url);
+      } catch (error) {
+        console.warn("[RootLayout] Stripe callback unavailable in current app binary", error);
+      }
+    };
+
+    Linking.getInitialURL()
+      .then((url) => {
+        processStripeUrl(url);
+      })
+      .catch((error) => {
+        console.warn("[RootLayout] Failed to read initial URL", error);
+      });
+
+    const subscription = Linking.addEventListener("url", ({ url }) => {
+      processStripeUrl(url);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
+    <ThemeProvider>
+      <CartProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="login" />
+          <Stack.Screen name="register" />
+          <Stack.Screen name="(tabs)" />
+        </Stack>
+      </CartProvider>
     </ThemeProvider>
   );
 }
