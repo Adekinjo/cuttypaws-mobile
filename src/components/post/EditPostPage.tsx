@@ -45,8 +45,7 @@ type PostRecord = {
 
 const MAX_MEDIA = 10;
 const MAX_CAPTION = 500;
-const MAX_IMAGE_FILE_SIZE = 10 * 1024 * 1024;
-const MAX_VIDEO_FILE_SIZE = 100 * 1024 * 1024;
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 export default function EditPostPage({
   postId,
@@ -148,13 +147,8 @@ export default function EditPostPage({
           return false;
         }
 
-        if (item.type.startsWith("image/") && item.size > MAX_IMAGE_FILE_SIZE) {
-          setError("Image size must be 10MB or less.");
-          return false;
-        }
-
-        if (item.type.startsWith("video/") && item.size > MAX_VIDEO_FILE_SIZE) {
-          setError("Video size must be 100MB or less.");
+        if (item.size > MAX_FILE_SIZE) {
+          setError("Each file must be 50MB or less.");
           return false;
         }
 
@@ -387,7 +381,7 @@ export default function EditPostPage({
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>New media</Text>
           <Text style={styles.sectionSubtitle}>
-            Add fresh images or videos. Images up to 10MB, videos up to 100MB are supported.
+            Add fresh images or videos. Files up to 50MB are supported.
           </Text>
 
           {newMedia.length ? (

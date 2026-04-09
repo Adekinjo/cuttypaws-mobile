@@ -28,8 +28,7 @@ type MediaPreview = {
 };
 
 const MAX_MEDIA = 10;
-const MAX_IMAGE_FILE_SIZE = 10 * 1024 * 1024;
-const MAX_VIDEO_FILE_SIZE = 100 * 1024 * 1024;
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 export default function CreatePostPage({
   onNavigate,
@@ -84,13 +83,8 @@ export default function CreatePostPage({
           return false;
         }
 
-        if (file.type.startsWith("image/") && file.fileSize > MAX_IMAGE_FILE_SIZE) {
-          setError("Image size should be 10MB or less.");
-          return false;
-        }
-
-        if (file.type.startsWith("video/") && file.fileSize > MAX_VIDEO_FILE_SIZE) {
-          setError("Video size should be 100MB or less.");
+        if (file.fileSize > MAX_FILE_SIZE) {
+          setError("Each file should be 50MB or less.");
           return false;
         }
 
@@ -236,7 +230,7 @@ export default function CreatePostPage({
             <View>
               <Text style={styles.sectionTitle}>Media</Text>
               <Text style={styles.sectionSubtitle}>
-                Add up to 10 images or videos. Images up to 10MB, videos up to 100MB.
+                Add up to 10 images or videos. Maximum 50MB each.
               </Text>
             </View>
             <Pressable style={styles.uploadAction} onPress={handleMediaUpload}>
