@@ -1,7 +1,8 @@
-import { Stack } from "expo-router";
 import * as Linking from "expo-linking";
+import { Stack } from "expo-router";
 import { useEffect } from "react";
 import AuthService from "../src/api/AuthService";
+import StripeAppProvider from "../src/components/common/StripeAppProvider";
 import { CartProvider } from "../src/components/context/CartContext";
 import { ThemeProvider } from "../src/components/context/ThemeContext";
 import { handleStripeCallback } from "../src/utils/stripeCallback";
@@ -46,15 +47,17 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <ThemeProvider>
-      <CartProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="login" />
-          <Stack.Screen name="register" />
-          <Stack.Screen name="(tabs)" />
-        </Stack>
-      </CartProvider>
-    </ThemeProvider>
+    <StripeAppProvider>
+      <ThemeProvider>
+        <CartProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="login" />
+            <Stack.Screen name="register" />
+            <Stack.Screen name="(tabs)" />
+          </Stack>
+        </CartProvider>
+      </ThemeProvider>
+    </StripeAppProvider>
   );
 }
