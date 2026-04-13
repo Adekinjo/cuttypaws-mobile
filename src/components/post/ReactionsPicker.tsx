@@ -133,13 +133,8 @@ export default function ReactionsPicker({
     [localReaction]
   );
 
-  const handleTriggerPress = async () => {
+  const handleTriggerPress = () => {
     if (disabled || loading) return;
-
-    if (localReaction) {
-      await handleRemoveReaction();
-      return;
-    }
 
     setVisible((prev) => !prev);
   };
@@ -246,7 +241,6 @@ export default function ReactionsPicker({
       <Animated.View style={{ transform: [{ scale: triggerScale }] }}>
         <Pressable
           onPress={handleTriggerPress}
-          onLongPress={() => !localReaction && !disabled && !loading && setVisible(true)}
           style={[
             styles.trigger,
             {
@@ -308,6 +302,7 @@ export default function ReactionsPicker({
                       isActive && { backgroundColor: reaction.bg },
                     ]}
                     onPress={() => handleReactionPress(reaction.type)}
+                    hitSlop={8}
                   >
                     {reaction.renderIcon({
                       color: reaction.color,

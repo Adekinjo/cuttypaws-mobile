@@ -14,6 +14,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import type { ImageResizeMode } from "react-native";
 
 import CommentLikeService from "../../api/CommentLikeService";
 import CommentsService from "../../api/CommentsService";
@@ -99,6 +100,7 @@ export default function PostCard({
   const [mediaWidth, setMediaWidth] = useState(0);
   const [showMoreCaption, setShowMoreCaption] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [showCommentComposer, setShowCommentComposer] = useState(false);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [comments, setComments] = useState<PostComment[]>([]);
   const [newComment, setNewComment] = useState("");
@@ -244,6 +246,15 @@ export default function PostCard({
     setSelectedMediaIndex(0);
   }, [post?.id, mediaItems.length]);
 
+  useEffect(() => {
+    setShowComments(false);
+    setShowCommentComposer(false);
+    setComments([]);
+    setNewComment("");
+    setReplyingTo(null);
+    setReplyText("");
+  }, [post?.id]);
+
   const handleOwnerPress = () => {
     if (post?.ownerId != null && onNavigate) {
       onNavigate("customer-profile", { userId: String(post.ownerId) });
@@ -314,12 +325,33 @@ export default function PostCard({
     }
   }, [post?.id, post?.commentCount]);
 
-  const toggleComments = () => {
-    if (!showComments) {
-      fetchComments();
+  const openComments = useCallback(
+    (options?: { composer?: boolean }) => {
+      if (!showComments) {
+        fetchComments();
+      }
+      setShowComments(true);
+      if (options?.composer) {
+        setShowCommentComposer(true);
+      }
+    },
+    [fetchComments, showComments]
+  );
+
+  const toggleComments = useCallback(() => {
+    if (showComments) {
+      setShowComments(false);
+      setShowCommentComposer(false);
+      setReplyingTo(null);
+      return;
     }
-    setShowComments((prev) => !prev);
-  };
+
+    openComments();
+  }, [openComments, showComments]);
+
+  const handleCommentPress = useCallback(() => {
+    openComments({ composer: true });
+  }, [openComments]);
 
   const submitComment = async () => {
     if (!newComment.trim() || !post?.id) return;
@@ -335,6 +367,7 @@ export default function PostCard({
         setNewComment("");
         setTotalComments((prev) => prev + 1);
         setShowComments(true);
+        setShowCommentComposer(false);
       } else {
         setError(res?.message || "Failed to add comment.");
       }
@@ -490,9 +523,6 @@ export default function PostCard({
               {post?.ownerName || "Unknown user"}
             </Text>
             <Text style={[styles.ownerMeta, { color: colors.textMuted }]}>{ownerDisplayLabel}</Text>
-            <Text style={[styles.ownerMeta, { color: colors.textMuted }]}>
-              {formatDate(post?.createdAt)}
-            </Text>
           </View>
         </Pressable>
 
@@ -584,7 +614,7 @@ export default function PostCard({
               disabled={reactionLoading}
             />
 
-            <Pressable style={styles.iconAction} onPress={toggleComments}>
+            <Pressable style={styles.iconAction} onPress={handleCommentPress}>
               <MessageSquareHeart size={24} strokeWidth={2} color={colors.textMuted} />
             </Pressable>
 
@@ -648,56 +678,75 @@ export default function PostCard({
           </View>
         ) : null}
 
-        {currentUser?.id ? (
-          <View style={styles.commentComposer}>
-            <TextInput
-              style={[
-                styles.commentInput,
-                {
-                  backgroundColor: colors.backgroundElevated,
-                  borderColor: colors.border,
-                  color: colors.text,
-                },
-              ]}
-              placeholder="Add a comment..."
-              placeholderTextColor={colors.textSoft}
-              value={newComment}
-              onChangeText={setNewComment}
-              editable={!commentLoading}
-            />
-            <Pressable
-              style={[
-                styles.commentSubmit,
-                (!newComment.trim() || commentLoading) && styles.disabledButton,
-              ]}
-              onPress={submitComment}
-              disabled={!newComment.trim() || commentLoading}
-            >
-              {commentLoading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Feather name="send" size={16} color="#FFFFFF" />
-              )}
-            </Pressable>
-          </View>
-        ) : (
-          <Pressable
-            style={[
-              styles.loginPrompt,
-              { borderColor: colors.border, backgroundColor: colors.backgroundElevated },
-            ]}
-          >
-            <Feather name="log-in" size={16} color={colors.success} />
-            <Text style={[styles.loginPromptText, { color: colors.success }]}>
-              Login to comment
-            </Text>
-          </Pressable>
-        )}
-
         {error ? <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text> : null}
 
         {showComments ? (
           <View style={styles.commentsBlock}>
+            {currentUser?.id ? (
+              showCommentComposer ? (
+                <View style={styles.commentComposer}>
+                  <TextInput
+                    style={[
+                      styles.commentInput,
+                      {
+                        backgroundColor: colors.backgroundElevated,
+                        borderColor: colors.border,
+                        color: colors.text,
+                      },
+                    ]}
+                    placeholder="Add a comment..."
+                    placeholderTextColor={colors.textSoft}
+                    value={newComment}
+                    onChangeText={setNewComment}
+                    editable={!commentLoading}
+                    autoFocus
+                  />
+                  <Pressable
+                    style={[
+                      styles.commentSubmit,
+                      (!newComment.trim() || commentLoading) && styles.disabledButton,
+                    ]}
+                    onPress={submitComment}
+                    disabled={!newComment.trim() || commentLoading}
+                  >
+                    {commentLoading ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Feather name="send" size={16} color="#FFFFFF" />
+                    )}
+                  </Pressable>
+                </View>
+              ) : (
+                <Pressable
+                  style={[
+                    styles.commentComposerPrompt,
+                    {
+                      backgroundColor: colors.backgroundElevated,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                  onPress={() => setShowCommentComposer(true)}
+                >
+                  <Feather name="message-circle" size={16} color={colors.textMuted} />
+                  <Text style={[styles.commentComposerPromptText, { color: colors.textMuted }]}>
+                    Write a comment
+                  </Text>
+                </Pressable>
+              )
+            ) : (
+              <Pressable
+                style={[
+                  styles.loginPrompt,
+                  { borderColor: colors.border, backgroundColor: colors.backgroundElevated },
+                ]}
+              >
+                <Feather name="log-in" size={16} color={colors.success} />
+                <Text style={[styles.loginPromptText, { color: colors.success }]}>
+                  Login to comment
+                </Text>
+              </Pressable>
+            )}
+
             {commentsLoading ? (
               <View style={styles.commentsLoader}>
                 <ActivityIndicator size="small" color="#0F766E" />
@@ -752,30 +801,99 @@ function RenderMedia({
 }) {
   const isVideo = String(item?.type || "").toUpperCase() === "VIDEO";
   const uri = item?.streamUrl || item?.url || "";
+  const [imageLoading, setImageLoading] = useState(!isVideo);
+
+  useEffect(() => {
+    setImageLoading(!isVideo);
+  }, [isVideo, uri]);
 
   if (isVideo) {
-    return (
-      <View style={[styles.videoWrap, compact && styles.videoWrapCompact]}>
-        <AppVideo
-          uri={uri}
-          style={compact ? styles.mediaThumb : styles.mediaHero}
-          contentFit="cover"
-          nativeControls={!compact}
-          shouldPlay={!compact && isActive}
-          isMuted={compact}
-          isLooping
-          posterUri={item?.thumbnailUrl || null}
-        />
-        {compact ? (
+    if (compact) {
+      return (
+        <View style={[styles.videoWrap, styles.videoWrapCompact]}>
+          <MediaImage
+            uri={item?.thumbnailUrl || uri}
+            style={styles.mediaThumb}
+            resizeMode="cover"
+          />
           <View style={styles.videoChip}>
             <Feather name="play" size={12} color="#FFFFFF" />
           </View>
-        ) : null}
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.videoWrap}>
+        <AppVideo
+          uri={uri}
+          style={styles.mediaHero}
+          contentFit="cover"
+          nativeControls
+          shouldPlay={isActive}
+          isMuted={false}
+          isLooping
+          posterUri={item?.thumbnailUrl || null}
+        />
       </View>
     );
   }
 
-  return <Image source={{ uri }} style={compact ? styles.mediaThumb : styles.mediaHero} />;
+  return (
+    <View style={styles.imageWrap}>
+      <Image
+        source={{ uri }}
+        style={compact ? styles.mediaThumb : styles.mediaHero}
+        resizeMode={compact ? "cover" : "cover"}
+        onLoadStart={() => setImageLoading(true)}
+        onLoadEnd={() => setImageLoading(false)}
+        progressiveRenderingEnabled
+      />
+      {imageLoading ? (
+        <View style={styles.mediaLoader}>
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function MediaImage({
+  uri,
+  style,
+  resizeMode = "cover",
+}: {
+  uri?: string | null;
+  style: any;
+  resizeMode?: ImageResizeMode;
+}) {
+  const [loading, setLoading] = useState(Boolean(uri));
+
+  useEffect(() => {
+    setLoading(Boolean(uri));
+  }, [uri]);
+
+  if (!uri) {
+    return <View style={[style, styles.mediaFallback]} />;
+  }
+
+  return (
+    <View style={styles.imageWrap}>
+      <Image
+        source={{ uri }}
+        style={style}
+        resizeMode={resizeMode}
+        onLoadStart={() => setLoading(true)}
+        onLoadEnd={() => setLoading(false)}
+        progressiveRenderingEnabled
+      />
+      {loading ? (
+        <View style={styles.mediaLoader}>
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        </View>
+      ) : null}
+    </View>
+  );
 }
 
 function CommentThread({
@@ -1171,9 +1289,21 @@ const styles = StyleSheet.create({
     color: "#0F766E",
   },
   commentComposer: {
-    marginTop: 14,
     flexDirection: "row",
     gap: 10,
+  },
+  commentComposerPrompt: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    minHeight: 46,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+  },
+  commentComposerPromptText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   commentInput: {
     flex: 1,
@@ -1219,6 +1349,19 @@ const styles = StyleSheet.create({
   commentsBlock: {
     marginTop: 14,
     gap: 12,
+  },
+  imageWrap: {
+    flex: 1,
+    backgroundColor: "#0F172A",
+  },
+  mediaLoader: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.2)",
+  },
+  mediaFallback: {
+    backgroundColor: "#0F172A",
   },
   commentsLoader: {
     paddingVertical: 20,
