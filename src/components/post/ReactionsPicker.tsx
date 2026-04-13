@@ -3,7 +3,9 @@ import { Bone, Cookie, Heart, PawPrint } from "lucide-react-native";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
+  Dimensions,
   Easing,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -84,10 +86,25 @@ export default function ReactionsPicker({
   const [loading, setLoading] = useState(false);
   const [localReaction, setLocalReaction] = useState<ReactionType | null>(currentReaction ?? null);
   const [error, setError] = useState("");
+  const [anchorFrame, setAnchorFrame] = useState({ x: 0, y: 0, width: size + 20, height: size + 20 });
+  const [popupHeight, setPopupHeight] = useState(0);
 
   const reveal = useRef(new Animated.Value(0)).current;
   const triggerScale = useRef(new Animated.Value(1)).current;
   const shakeValue = useRef(new Animated.Value(0)).current;
+  const triggerRef = useRef<View | null>(null);
+
+  const screen = Dimensions.get("window");
+  const popupWidth = 216;
+  const popupLeft = Math.min(
+    Math.max(12, anchorFrame.x - 10),
+    Math.max(12, screen.width - popupWidth - 12)
+  );
+  const popupTop = Math.max(12, anchorFrame.y - popupHeight - 12);
+  const arrowLeft = Math.min(
+    Math.max(18, anchorFrame.x + anchorFrame.width / 2 - popupLeft - 8),
+    popupWidth - 34
+  );
 
   useEffect(() => {
     setLocalReaction(currentReaction ?? null);
@@ -136,7 +153,15 @@ export default function ReactionsPicker({
   const handleTriggerPress = () => {
     if (disabled || loading) return;
 
-    setVisible((prev) => !prev);
+    if (visible) {
+      setVisible(false);
+      return;
+    }
+
+    triggerRef.current?.measureInWindow((x, y, width, height) => {
+      setAnchorFrame({ x, y, width, height });
+      setVisible(true);
+    });
   };
 
   const handleRemoveReaction = async () => {
@@ -234,102 +259,125 @@ export default function ReactionsPicker({
 
   return (
     <View style={styles.wrapper}>
-      {visible ? (
-        <Pressable style={StyleSheet.absoluteFill} onPress={() => setVisible(false)} />
-      ) : null}
-
-      <Animated.View style={{ transform: [{ scale: triggerScale }] }}>
-        <Pressable
-          onPress={handleTriggerPress}
-          style={[
-            styles.trigger,
-            {
-              width: size + 20,
-              height: size + 20,
-              borderRadius: (size + 20) / 2,
-            },
-            currentReactionData && {
-              backgroundColor: currentReactionData.bg,
-              borderColor: currentReactionData.color,
-            },
-            !currentReactionData && {
-              backgroundColor: isDark ? colors.backgroundMuted : "#FFFFFF",
-              borderColor: isDark ? colors.border : "#E2E8F0",
-            },
-            disabled && styles.disabled,
-          ]}
-        >
-          {loading ? (
-            <Feather name="loader" size={size - 4} color={colors.textMuted} />
-          ) : (
-            <Animated.View style={currentReactionData ? { transform: shakeTransform } : undefined}>
-              {currentReactionData ? (
-                currentReactionData.renderIcon({
-                  color: currentReactionData.color,
-                  filled: true,
-                })
-              ) : (
-                <PawPrint size={size - 1} strokeWidth={2.3} color={colors.textMuted} />
-              )}
-            </Animated.View>
-          )}
-        </Pressable>
-      </Animated.View>
-
-      {visible ? (
-        <Animated.View
-          style={[
-            styles.pickerPopup,
-            pickerAnimatedStyle,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-            },
-          ]}
-        >
-          <View style={[styles.arrow, { borderTopColor: colors.card }]} />
-          <View style={styles.reactionRow}>
-            {REACTIONS.map((reaction) => {
-              const isActive = localReaction === reaction.type;
-              return (
-                <Animated.View
-                  key={reaction.type}
-                  style={isActive ? { transform: shakeTransform } : undefined}
-                >
-                  <Pressable
-                    style={[
-                      styles.reactionButton,
-                      isActive && { backgroundColor: reaction.bg },
-                    ]}
-                    onPress={() => handleReactionPress(reaction.type)}
-                    hitSlop={8}
-                  >
-                    {reaction.renderIcon({
-                      color: reaction.color,
-                      filled: isActive,
-                    })}
-                  </Pressable>
-                </Animated.View>
-              );
-            })}
-          </View>
-
-          {localReaction ? (
-            <Pressable style={styles.removeRow} onPress={handleRemoveReaction}>
-              <Feather name="trash-2" size={15} color="#991B1B" />
-              <Text style={[styles.removeText, { color: colors.danger }]}>
-                Remove current reaction
-              </Text>
-            </Pressable>
-          ) : (
-            <Text style={[styles.helperText, { color: colors.textMuted }]}>
-              Tap a reaction to send it instantly.
-            </Text>
-          )}
-
-          {error ? <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text> : null}
+      <View ref={triggerRef} collapsable={false}>
+        <Animated.View style={{ transform: [{ scale: triggerScale }] }}>
+          <Pressable
+            onPress={handleTriggerPress}
+            style={[
+              styles.trigger,
+              {
+                width: size + 20,
+                height: size + 20,
+                borderRadius: (size + 20) / 2,
+              },
+              currentReactionData && {
+                backgroundColor: currentReactionData.bg,
+                borderColor: currentReactionData.color,
+              },
+              !currentReactionData && {
+                backgroundColor: isDark ? colors.backgroundMuted : "#FFFFFF",
+                borderColor: isDark ? colors.border : "#E2E8F0",
+              },
+              disabled && styles.disabled,
+            ]}
+          >
+            {loading ? (
+              <Feather name="loader" size={size - 4} color={colors.textMuted} />
+            ) : (
+              <Animated.View style={currentReactionData ? { transform: shakeTransform } : undefined}>
+                {currentReactionData ? (
+                  currentReactionData.renderIcon({
+                    color: currentReactionData.color,
+                    filled: true,
+                  })
+                ) : (
+                  <PawPrint size={size - 1} strokeWidth={2.3} color={colors.textMuted} />
+                )}
+              </Animated.View>
+            )}
+          </Pressable>
         </Animated.View>
-      ) : null}
+      </View>
+
+      <Modal
+        animationType="none"
+        transparent
+        statusBarTranslucent
+        visible={visible}
+        onRequestClose={() => setVisible(false)}
+      >
+        <View style={styles.modalRoot}>
+          <Pressable
+            style={[StyleSheet.absoluteFill, { backgroundColor: "transparent" }]}
+            onPress={() => setVisible(false)}
+          />
+
+          <Animated.View
+            onLayout={(event) => setPopupHeight(event.nativeEvent.layout.height)}
+            style={[
+              styles.pickerPopup,
+              pickerAnimatedStyle,
+              {
+                top: popupTop,
+                left: popupLeft,
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.arrow,
+                {
+                  left: arrowLeft,
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                },
+              ]}
+            />
+            <View style={styles.reactionRow}>
+              {REACTIONS.map((reaction) => {
+                const isActive = localReaction === reaction.type;
+                return (
+                  <Animated.View
+                    key={reaction.type}
+                    style={isActive ? { transform: shakeTransform } : undefined}
+                  >
+                    <Pressable
+                      style={[
+                        styles.reactionButton,
+                        isActive && { backgroundColor: reaction.bg },
+                      ]}
+                      onPress={() => handleReactionPress(reaction.type)}
+                      hitSlop={10}
+                    >
+                      {reaction.renderIcon({
+                        color: reaction.color,
+                        filled: isActive,
+                      })}
+                    </Pressable>
+                  </Animated.View>
+                );
+              })}
+            </View>
+
+            {localReaction ? (
+              <Pressable style={styles.removeRow} onPress={handleRemoveReaction}>
+                <Feather name="trash-2" size={15} color="#991B1B" />
+                <Text style={[styles.removeText, { color: colors.danger }]}>
+                  Remove current reaction
+                </Text>
+              </Pressable>
+            ) : (
+              <Text style={[styles.helperText, { color: colors.textMuted }]}>
+                Tap a reaction to send it instantly.
+              </Text>
+            )}
+
+            {error ? <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text> : null}
+          </Animated.View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -354,10 +402,11 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.45,
   },
+  modalRoot: {
+    flex: 1,
+  },
   pickerPopup: {
     position: "absolute",
-    bottom: 48,
-    left: 0,
     minWidth: 216,
     borderRadius: 24,
     paddingHorizontal: 8,
@@ -375,7 +424,6 @@ const styles = StyleSheet.create({
   arrow: {
     position: "absolute",
     bottom: -8,
-    left: 18,
     width: 16,
     height: 16,
     backgroundColor: "#FFFFFF",
